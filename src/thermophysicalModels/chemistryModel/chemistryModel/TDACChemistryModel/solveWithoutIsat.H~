@@ -39,7 +39,8 @@
 	// Not sure if this is necessary
     Rphiq = Zero;
     
-    clockTime_.timeIncrement();
+    //clockTime_.timeIncrement();
+    scalar timeTmp = clockTime_.timeIncrement();
     if (reduced)
     {
     	// Reduce mechanism change the number of species (only active)
