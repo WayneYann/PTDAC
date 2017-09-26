@@ -42,8 +42,7 @@ Foam::chemistryTabulationMethod<CompType, ThermoType>::chemistryTabulationMethod
     chemistry_(chemistry),
     tolerance_(coeffsDict_.lookupOrDefault<scalar>("tolerance", 1e-4)),
 	loadBalance_(coeffsDict_.lookupOrDefault<Switch>("loadBalance", false)),
-    distributionType_(coeffsDict_.lookup("distributionType")),
-    numberOfInitDI_(coeffsDict_.lookupOrDefault<scalar>("numberOfInitialDI", 5))
+    distributionType_(coeffsDict_.lookup("distributionType"))
 {}
 
 

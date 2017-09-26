@@ -1,0 +1,110 @@
+ forAll(rho, celli)
+{
+    DIClock_.timeIncrement();
+    //label celli(cellIndexTmp[ci]);
+
+    scalar rhoi = rho[celli];
+    scalar Ti = this->thermo().T()[celli];
+    scalar hi = this->thermo().hs()[celli] + hc[celli];
+    scalar pi = this->thermo().p()[celli];
+
+    scalarField phiq(this->nEqns());
+    for(label i=0; i<this->nSpecie(); i++)
+    {
+        phiq[i] = this->Y()[i][celli];
+    }
+
+    //Species are stored in mass fraction in the cells
+    //c arrays indicate the molar concentration of the species
+    // c = (Y * rho)/W [kmol/m3]
+    //phiq array store the mass fraction, the temperature and pressure
+    //(i.e. the composition) of the query point
+    scalarField c(this->nSpecie());
+    scalarField c0(this->nSpecie());
+    for(label i=0; i<this->nSpecie(); i++)
+    {
+        c[i] = rhoi*phiq[i]*invWi[i];
+    }
+    phiq[this->nSpecie()]=Ti;
+    phiq[this->nSpecie()+1]=pi;
+
+    //store the initial molar concentration to compute dc=c-c0
+    c0 = c;
+
+    //time step and chemical time step
+    scalar t = t0;
+    scalar tauC = this->deltaTChem_[celli];
+    scalar dt = min(deltaT, tauC);
+    scalar timeLeft = deltaT;
+
+    scalar cTot = 0.0;
+
+
+    if (DAC_) mechRed_->reduceMechanism(c, Ti, pi);
+    while(timeLeft > SMALL)
+    {
+        nDI_++;
+        if (DAC_)
+        {
+            //the value of c is updated in the solve function of the chemistrySolverTDAC
+            completeC_ = c;
+            tauC = this->solver().solve(simplifiedC_, Ti, pi, t, dt);
+            for (label i=0; i<NsDAC(); i++)  c[simplifiedToCompleteIndex(i)] = simplifiedC_[i];
+        }
+        else
+        {
+            //Without dynamic reduction, the ode is directly solved
+            //including all the species specified in the mechanism
+
+            //the value of c is updated in the solve function of the chemistrySolverTDAC
+            tauC = this->solver().solve(c, Ti, pi, t, dt);
+        }
+        t += dt;
+
+        // update the temperature
+        cTot = sum(c);
+
+        ThermoType mixture(0.0*this->specieThermo()[0]);
+        for(label i=0; i<completeC_.size(); i++)
+        {
+            mixture += (c[i]/cTot)*this->specieThermo()[i];
+        }
+        Ti = mixture.TH(hi, Ti);
+        timeLeft -= dt;
+        this->deltaTChem_[celli] = tauC;
+        dt = min(timeLeft, tauC);
+        dt = max(dt, SMALL);
+    }
+    if (DAC_)
+    {
+        //after solving the number of species should be set back to the total number
+        nSpecie_ = mechRed_->nSpecie();
+        nNsDAC_++;
+        meanNsDAC_+=NsDAC();
+        //extend the array of active species to the full composition space
+        for (label i=0; i<NsDAC(); i++)  c[simplifiedToCompleteIndex(i)] = simplifiedC_[i];
+    }
+    deltaTMin = min(tauC, deltaTMin);
+
+
+
+    //Compute the rate of reaction according to dc=c-c0
+    //In the CFD solver the following equation is solved:
+    //d(Yi*rho)/dt +convection+diffusion = RR*turbulentCoeff(=1 if not used)
+    //Therefore, the unit of RR should be [kg/(m3.s)]
+    scalarField dc = c - c0;
+    for(label i=0; i<this->nSpecie(); i++)
+    {
+        this->RR()[i][celli] = dc[i]*Wi[i]/deltaT;
+    }
+    DICpuTime_ += DIClock_.timeIncrement();
+}//End of loop over all cells
+
+
+if (DAC_ && nNsDAC_!=0)
+    meanNsDAC_/=nNsDAC_;
+else
+    meanNsDAC_=NsDAC();
+
+
+
