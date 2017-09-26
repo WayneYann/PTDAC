@@ -647,6 +647,17 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
         ),
         this->thermo().rho()
     );
+    //Random access to mesh cells to avoid problem using ISAT
+    labelList cellIndexTmp = identity(rho.size());//cellIndexTmp[i]=i
+    Random randGenerator(unsigned(time(NULL)));
+    label j;
+    for (label i=0; i<rho.size(); i++)
+    {
+        j=randGenerator.integer(i,rho.size()-1);
+        label tmp = cellIndexTmp[i];
+        cellIndexTmp[i] = cellIndexTmp[j];
+        cellIndexTmp[j] = tmp;
+    }
     if(tabulation_->active() && tabulation_->loadBalance() && timeSteps_<=tabulation_->numberOfInitDI())
     {
     	Info<<"solve without ISAT because of number of time steps is below the limit"<<endl;
@@ -673,7 +684,7 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
     if(tabulation_->active() && !tabulation_->loadBalance() && timeSteps_>tabulation_->numberOfInitDI())
     {
     	Info<<"solve in PLP mode"<<endl;
-        //#include "solveWithIsatWithoutLoadBalance.H"
+        #include "solvePLPISAT.H"
     }
     if(!tabulation_->active() )
     {
