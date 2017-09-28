@@ -23,4 +23,5 @@ $(PLIBS) \
     -lspecie \
     -lODE \
     -lfiniteVolume \
-    -lmeshTools 
+    -lmeshTools \
+    -L$(mpi_LIBRARY_PATH)/lib 

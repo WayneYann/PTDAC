@@ -124,7 +124,6 @@ class TDACChemistryModel
         // 0 -> add (direct integration)
         // 1 -> grow
         // 2 -> retrieve
-        // 3 -> distributed
         volScalarField tabulationResults_;
         
         //Time takes for each cell mapping to be calculated
@@ -324,8 +323,6 @@ public:
             void setTabulationResultsGrow(const label celli);
 
             void setTabulationResultsRetrieve(const label celli);
-            
-            void setTabulationResultsDistributed(const label celli);
 
             inline void resetTabulationResults();
 };

@@ -1,83 +1,56 @@
-forAll(rho, ci)
-//forAll(rho, celli)
+clockTime cellResClockTime= clockTime();
+for(label i4=startat;i4<stopat;i4++)
 {
-	label celli(cellIndexTmp[ci]);
-	scalar tauC = this->deltaTChem_[celli];
-    
-    scalar rhoi = rho[celli];
-    scalar Ti = this->thermo().T()[celli];
-    //scalar hi = this->thermo().hs()[celli] + hc[celli];
-    scalar pi = this->thermo().p()[celli];
-
-	// Composition vector (Yi, T, p)
-    scalarField phiq(this->nEqns() + nAdditionalEqn);
+	label celli(Rxf[i4][0]);//check
+	cellTime_[celli]=0;
+	cellResClockTime.timeIncrement();
+	scalarField c(this->nSpecie());
+	scalarField c0(this->nSpecie());
+	for(label i=0; i<this->nSpecie(); i++)
+	{
+		c[i] = Rxf[i4][8+i];
+	}
+	c0=c;
+	scalar Ti = Rxf[i4][4];
+	scalar pi = Rxf[i4][5];
+//	scalar hi = Rxf[i4][6];
+scalar deltaTr=Rxf[i4][6];
+	scalar rhoi = Rxf[i4][7];
+	scalarField phiq(this->nEqns() + nAdditionalEqn);
     scalarField Rphiq(this->nEqns() + nAdditionalEqn);
-    //scalarField phiq(this->nEqns());
-    
-    scalarField c(this->nSpecie_);
-    scalarField c0(this->nSpecie_);
-    
-    for(label i=0; i<this->nSpecie_; i++)
-    {
-     	c[i] = rhoi*this->Y_[i][celli]/this->specieThermo_[i].W();
-        c0[i] = c[i];
-        phiq[i] = this->Y()[i][celli];
-    }
-    phiq[this->nSpecie()]=Ti;
-    phiq[this->nSpecie()+1]=pi;
-    if (tabulation_->variableTimeStep())
-    {
-     	phiq[this->nSpecie() + 2] = deltaT[celli];
-    }
-    
-    // Initialise time progress
-    scalar timeLeft = deltaT[celli];
 
-    //time step and chemical time step
-    //scalar t = t0;
-    //scalar tauC = this->deltaTChem_[celli];
-    //scalar dt = min(deltaT, tauC);
-    //scalar timeLeft = deltaT;
+	for(label i=0; i<this->nSpecie(); i++)
+	{
+		phiq[i] = c[i]/rhoi*this->specieThermo_[i].W();
+	}
+	phiq[this->nSpecie()]=Ti;
+	phiq[this->nSpecie()+1]=pi;
+	if (tabulation_->variableTimeStep())
+    {
+     	phiq[this->nSpecie() + 2] = Rxf[i4][6];
+    }
+    scalar tauC = Rxf[i4][2];
 
-    //scalar cTot = 0.0;
- 
+    scalar timeLeft = deltaTr;
+
 	// Not sure if this is necessary
     Rphiq = Zero;
     
     clockTime_.timeIncrement();
-    //scalar timeTmp = clockTime_.timeIncrement();
     
-
-    // When tabulation is active (short-circuit evaluation for retrieve)
-    // It first tries to retrieve the solution of the system with the
-    // information stored through the tabulation method
+    //The tabulation algorithm try to retrieve the mapping
     if (tabulation_->retrieve(phiq, Rphiq))
     {
-		//nFound_ ++;
-		//isatUsage_[celli]=2.0;
-		//Rphiq array store the mapping of the query point
-		//scalarField Rphiq(this->nSpecie());
-		//scalarField RDphiq(this->nSpecie());
-		//tabPtr_->calcNewC(phi0, phiq, Rphiq);
-		//RetrieveCpuTime_+= retrieveClock_.timeIncrement();
-		//Rphiq is in mass fraction, it is converted to molar
-        //concentration to obtain c (used to compute RR)
-        //for (label i=0; i<this->nSpecie(); i++) c[i] = rhoi*Rphiq[i]*invWi[i];
-    
-		// Retrieved solution stored in Rphiq
         for (label i=0; i<this->nSpecie(); i++)
         {
         	c[i] = rhoi*Rphiq[i]/this->specieThermo_[i].W();
         }
-
         searchISATCpuTime_ += clockTime_.timeIncrement();
     }
-    // if the solution is not retrieved.
-    // In the latter case, it adds the information to the tabulation
-    // (it will either expand the current data or add a new stored point).
+    //Retrieve has failed. The mapping is computed
     else
     {
-		// Store total time waiting to attribute to add or grow
+        // Store total time waiting to attribute to add or grow
         scalar timeTmp = clockTime_.timeIncrement();
 		if (reduced)
         {
@@ -112,7 +85,7 @@ forAll(rho, ci)
             else
             {
                 this->solve(c, Ti, pi, dt, this->deltaTChem_[celli]);
-                tauC=this->deltaTChem_[celli];
+            tauC=this->deltaTChem_[celli];
             }
             timeLeft -= dt;
         }
@@ -162,14 +135,21 @@ forAll(rho, ci)
             this->nSpecie_ = mechRed_->nSpecie();
         }
         deltaTMin = min(this->deltaTChem_[celli], deltaTMin);
+        
     }
-    
-    // Set the RR vector (used in the solver)
-    for (label i=0; i<this->nSpecie_; i++)
+
+    //Compute the rate of reaction according to dc=c-c0
+    //In the CFD solver the following equation is solved:
+    //d(Yi*rho)/dt +convection+diffusion = RR*turbulentCoeff(=1 if not used)
+    //Therefore, the unit of RR should be [kg/(m3.s)]
+    scalarField dc = c - c0;
+    for(label i=0; i<this->nSpecie(); i++)
     {
-        this->RR_[i][celli] =
-            (c[i] - c0[i])*this->specieThermo_[i].W()/deltaT[celli];
+        this->RR()[i][celli] = dc[i]*this->specieThermo_[i].W()/deltaTr;
     }
-}//End of loop over all cells
+
+    cellTime_[celli]+=cellResClockTime.timeIncrement();
+}//End of loop over Resident cells
+
 
 

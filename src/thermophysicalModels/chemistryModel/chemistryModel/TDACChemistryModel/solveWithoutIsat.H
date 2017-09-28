@@ -1,4 +1,4 @@
- forAll(rho, celli)
+forAll(rho, celli)
 {
     //DIClock_.timeIncrement();
     //label celli(cellIndexTmp[ci]);
@@ -35,10 +35,10 @@
     //scalar timeLeft = deltaT;
 
     //scalar cTot = 0.0;
- 
+
 	// Not sure if this is necessary
     Rphiq = Zero;
-    
+     
     //clockTime_.timeIncrement();
     scalar timeTmp = clockTime_.timeIncrement();
     if (reduced)
