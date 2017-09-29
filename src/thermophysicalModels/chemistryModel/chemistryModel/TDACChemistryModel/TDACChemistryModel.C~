@@ -689,7 +689,7 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
 		else//PDist will be used
 		{
 			Info<<"solve in parallel ISAT mode PDist"<<endl;
-			//#include "solveWithIsatWithLoadBalance.H"
+			#include "PDist.H"
 		}
     }
     if(tabulation_->active() && !tabulation_->loadBalance() && timeSteps_<=tabulation_->numberOfInitDI())
@@ -991,6 +991,15 @@ setTabulationResultsRetrieve
 )
 {
     tabulationResults_[celli] = 2.0;
+}
+
+template<class CompType, class ThermoType>
+void Foam::TDACChemistryModel<CompType, ThermoType>::setTabulationResultsDistributed
+(
+    const label celli
+)
+{
+    tabulationResults_[celli] = 3.0;
 }
 
 

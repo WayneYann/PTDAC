@@ -27,7 +27,18 @@ License
 #include "UniformField.H"
 #include "localEulerDdtScheme.H"
 #include "clockTime.H"
+
+#include <sys/time.h>
+
+#include "Random.H"
+#include "OFstream.H"
 #include "mpi.h"
+#include "IPstream.H"
+#include "OPstream.H"
+#include "ListOps.H"	
+#include "SortableList.H"
+#include "List.H"
+#include "SLList.H"
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
@@ -689,7 +700,7 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
 		else//PDist will be used
 		{
 			Info<<"solve in parallel ISAT mode PDist"<<endl;
-			//#include "solveWithIsatWithLoadBalance.H"
+			#include "PDist.H"
 		}
     }
     if(tabulation_->active() && !tabulation_->loadBalance() && timeSteps_<=tabulation_->numberOfInitDI())
