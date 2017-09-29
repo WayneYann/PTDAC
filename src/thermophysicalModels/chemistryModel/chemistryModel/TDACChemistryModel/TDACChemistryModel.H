@@ -124,7 +124,11 @@ class TDACChemistryModel
         // 0 -> add (direct integration)
         // 1 -> grow
         // 2 -> retrieve
+        // 3 -> distributed
         volScalarField tabulationResults_;
+        
+        //Time takes for each cell mapping to be calculated
+        volScalarField cellTime_;
 
 
     // Private Member Functions
@@ -140,6 +144,40 @@ class TDACChemistryModel
         //  Variable number of species added
         template<class DeltaTType>
         scalar solve(const DeltaTType& deltaT);
+        
+void x2f_uran_p
+			( 	
+				label &nproc, 
+				//label mpicomm, 
+				label &myrank, 
+				label &ntogo, 
+				label &nv, 
+				List<label> & p1, 
+				List<label> & n_incoming, 
+				List<label> & n_outgoing 
+			);
+
+		void iuranwor2
+			( 	
+				label &msgsize,
+				label &nproc, 
+				label &nleft,
+				label &nleftpsum,		
+				List<label> & n_outgoing 
+			);
+
+		void bucket_sort
+			( 	
+				label &nlist,
+				label &ld, 
+				label &nelem,
+				List<List<scalar> > & list ,
+				List<label> &bucket_assigns,
+				label &nbucket,
+				List<label> &bucket_totals,
+				List<label> & list_origplaces,
+				List<label> & orig_slots
+			);
 
 
 public:
@@ -286,6 +324,8 @@ public:
             void setTabulationResultsGrow(const label celli);
 
             void setTabulationResultsRetrieve(const label celli);
+            
+            void setTabulationResultsDistributed(const label celli);
 
             inline void resetTabulationResults();
 };

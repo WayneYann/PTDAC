@@ -28,6 +28,18 @@ License
 #include "localEulerDdtScheme.H"
 #include "clockTime.H"
 
+#include <sys/time.h>
+
+#include "Random.H"
+#include "OFstream.H"
+#include "mpi.h"
+#include "IPstream.H"
+#include "OPstream.H"
+#include "ListOps.H"	
+#include "SortableList.H"
+#include "List.H"
+#include "SLList.H"
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class CompType, class ThermoType>
@@ -55,6 +67,19 @@ Foam::TDACChemistryModel<CompType, ThermoType>::TDACChemistryModel
         IOobject
         (
             "TabulationResults",
+            this->time().timeName(),
+            this->mesh(),
+            IOobject::NO_READ,
+            IOobject::AUTO_WRITE
+        ),
+        mesh,
+        scalar(0)
+    ),
+    cellTime_
+    (
+    	IOobject
+        (
+            "cellTime",
             this->time().timeName(),
             this->mesh(),
             IOobject::NO_READ,
@@ -600,6 +625,7 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
     const DeltaTType& deltaT
 )
 {
+
     // Increment counter of time-step
     timeSteps_++;
 
@@ -617,6 +643,8 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
     scalar growCpuTime_ = 0;
     scalar solveChemistryCpuTime_ = 0;
     scalar searchISATCpuTime_ = 0;
+    
+    const clockTime clockTime_cellTime= clockTime();
 
     this->resetTabulationResults();
 
@@ -646,7 +674,51 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
         ),
         this->thermo().rho()
     );
-
+    //Random access to mesh cells to avoid problem using ISAT
+    labelList cellIndexTmp = identity(rho.size());//cellIndexTmp[i]=i
+    Random randGenerator(unsigned(time(NULL)));
+    label j;
+    for (label i=0; i<rho.size(); i++)
+    {
+        j=randGenerator.integer(i,rho.size()-1);
+        label tmp = cellIndexTmp[i];
+        cellIndexTmp[i] = cellIndexTmp[j];
+        cellIndexTmp[j] = tmp;
+    }
+    if(tabulation_->active() && tabulation_->loadBalance() && timeSteps_<=tabulation_->numberOfInitDI())
+    {
+    	Info<<"solve without ISAT because of number of time steps is below the limit"<<endl;
+    	#include "solveWithoutIsat.H"
+    }
+    if(tabulation_->active() && tabulation_->loadBalance()  && timeSteps_>tabulation_->numberOfInitDI())
+    {	
+		if(tabulation_->distributionType()=="URAN")
+		{
+			Info<<"solve in parallel ISAT mode URAN"<<endl;
+			#include "URAN.H"
+		}
+		else//PDist will be used
+		{
+			Info<<"solve in parallel ISAT mode PDist"<<endl;
+			#include "PDist.H"
+		}
+    }
+    if(tabulation_->active() && !tabulation_->loadBalance() && timeSteps_<=tabulation_->numberOfInitDI())
+    {
+    	Info<<"solve without ISAT because of number of time steps is below the limit"<<endl;
+       	#include "solveWithoutIsat.H"
+    }
+    if(tabulation_->active() && !tabulation_->loadBalance() && timeSteps_>tabulation_->numberOfInitDI())
+    {
+    	Info<<"solve in PLP mode"<<endl;
+        #include "solvePLPISAT.H"
+    }
+    if(!tabulation_->active() )
+    {
+    	Info<<"solve without ISAT"<<endl;
+        #include "solveWithoutIsat.H"
+    }
+/*
     const scalarField& T = this->thermo().T();
     const scalarField& p = this->thermo().p();
 
@@ -803,7 +875,7 @@ Foam::scalar Foam::TDACChemistryModel<CompType, ThermoType>::solve
                 (c[i] - c0[i])*this->specieThermo_[i].W()/deltaT[celli];
         }
     }
-
+*/
     if (mechRed_->log() || tabulation_->log())
     {
         cpuSolveFile_()
@@ -932,5 +1004,312 @@ setTabulationResultsRetrieve
     tabulationResults_[celli] = 2.0;
 }
 
+template<class CompType, class ThermoType>
+void Foam::TDACChemistryModel<CompType, ThermoType>::setTabulationResultsDistributed
+(
+    const label celli
+)
+{
+    tabulationResults_[celli] = 3.0;
+}
 
+
+template<class CompType, class ThermoType>
+void Foam::TDACChemistryModel<CompType, ThermoType>::x2f_uran_p
+	( 	
+		label &nproc, 
+		//label mpicomm, 
+		label &myrank, 
+		label &ntogo, 
+		label &nv, 
+		List<label> & p1, 
+		List<label> & n_incoming, 
+		List<label> & n_outgoing 
+	)
+{
+
+	label n_offset=0;
+	List<label> active_pool(nproc,0);
+	int j_pick=0;
+	int p_pick=0;
+	// Start by figuring out how many cells will go to each of the other processes.
+	// n_outgoing(j) is the number of cells that are destined for process j.
+	// It is logical to initialize it ntogo/nproc (which could be zero), for all j.
+	// But there could be some cells left over...
+	label msgsize = ntogo / nproc;
+	forAll(n_outgoing,pi) n_outgoing[pi]=msgsize;
+	label n_left = ntogo - msgsize * nproc;
+	
+	//Now figure out which processes get the leftovers.  Global communication is needed.
+	// To spread the leftovers evenly, single cells are assigned to sequential ranks.
+	// On rank 0, the starting point of the sequence is 1 plus a random offset < nproc.
+	// For higher ranks, the starting point is found through the "prefix sum" of n_left.
+	// This is the sum of leftovers on ranks < myrank.  We use MPI_Scan to compute this.
+	// It gives the rank (modulo nproc) of the last process to be assigned a cell.
+	// The random offset is necessary to ensure leftover cells do not keep returning
+	// to the same range of ranks each time this routine is called.
+
+	label n_left_prfsum=0;
+	
+	if(myrank==0)
+	{
+		//F. call random_number( roffset )
+		//We want a random number btw 0 and nproc-1
+		Random randGenerator(unsigned(time(NULL)));
+		n_offset=randGenerator.integer(0,nproc-1);//check this
+		n_left += n_offset;
+	}
+		
+		
+	MPI_Scan( &n_left, &n_left_prfsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+	if ( myrank == 0 )
+	{
+		// remove offset after calculating prefix sum
+		n_left = n_left - n_offset;  
+	}
+	// We want the prefix sum to include only the lower ranks, excluding the current rank;
+	//on all ranks, the prefix sum will retain the random offset.
+	n_left_prfsum = n_left_prfsum - n_left;
+	
+	//this should be implementaed
+	//call iuranwor2( msgsize, nproc, n_left, n_left_prfsum, n_outgoing )
+	//for the moment easy implementation is used
+	
+iuranwor2( msgsize, nproc, n_left, n_left_prfsum, n_outgoing );
+	
+	// At this point, all processes know n_outgoing, so an all-to-all determines n_incoming
+	MPI_Alltoall( reinterpret_cast<char*>(n_outgoing.begin()), 1, MPI_INT, reinterpret_cast<char*>(n_incoming.begin()), 1, MPI_INT, MPI_COMM_WORLD );
+	
+	// All that's left to do is to assign the exact cells that are going to each process.
+	// Imagine drawing processor assignments one at a time out of a pool of slips of paper.
+	// The slips are numbered 1 to nproc.  A slip is replaced in the pool after it is drawn.
+	// But: after some number j has been drawn n_outgoing(j) times, we must remove its slip.
+	// pool_count(j) tells us how many more times a given number j is allowed to be drawn...
+	
+	List<label> pool_count(nproc,0);
+	forAll(pool_count,pi) pool_count[pi]=n_outgoing[pi];
+	
+	// pool_count(j) goes down by one each time j is drawn.  As drawing continues, it will
+	// eventually reach zero for some j.  When that occurs, total_active is reduced by 1,
+	// and active_pool is rearranged so that active_pool(k) /= j for k in 1:total_active.
+	// In the usual case, nv > ntogo > nproc.  We therefore start with total_active = nproc
+	// and active_pool(j) = j.  But we also want to handle situations where ntogo < nproc.
+	// That means some slips will not be present in the pool from the start:
+
+	
+	label total_active = 0;
+	for(int j=0;j<nproc;j++)
+	{
+		if(n_outgoing[j] != 0)
+		{
+			total_active = total_active + 1;
+			active_pool[total_active-1] = j;
+		}
+	}
+	for(int i=0;i<nv;i++)
+	{
+		if(p1[i] == -1)
+		{
+			//Random randGenerator(unsigned(time(NULL)));
+			Random randGenerator(123*(myrank+1)+7*(i+1)*unsigned(time(NULL)));
+			j_pick=randGenerator.integer(0,total_active-1);//check this
+			p_pick = active_pool[j_pick];
+			pool_count[p_pick] = pool_count[p_pick] - 1;
+			if( pool_count[p_pick] == 0 )
+			{
+				if( j_pick != total_active-1 )
+				{
+					//move an active pool number from the last slot to the newly empty slot
+					active_pool[j_pick] = active_pool[total_active-1];
+				}
+				total_active = total_active - 1;
+			}
+			p1[i] = p_pick;	    
+		}			
+	}
+	
+	//should be implemented
+	//call random_seed( get = seednum(1:seedsize) )
+	//call random_seed( put = seed_on_entry(1:seedsize) )
+}
+
+template<class CompType, class ThermoType>
+void Foam::TDACChemistryModel<CompType, ThermoType>::iuranwor2
+	( 	
+		label &msgsize,
+		label &nproc, 
+		label &nleft,
+		label &nleftpsum,		
+		List<label> & n_outgoing 
+	)
+{
+	/*label nwraps=nleftpsum/nproc;
+	label nleft_sub= nleftpsum - nwraps*nproc;
+	if (nleft_sub+nleft <= nproc)
+	{
+		n_outgoing(nleft_sub+1:nleft_sub+nleft) = msgsize + 1
+	}
+	else
+	{
+		n_outgoing(nleft_sub+1:nproc) = msgsize + 1
+		n_outgoing(1:nleft-(nproc-nleft_sub)) = msgsize + 1
+	}*/
+	//easy c++ implementation by ALISH
+	for(label pi=0;pi<nleft;pi++)
+	{
+		n_outgoing[pi]=msgsize+1;
+	}
+	
+}
+
+template<class CompType, class ThermoType>
+void Foam::TDACChemistryModel<CompType, ThermoType>::bucket_sort
+	( 	
+		label &nlist,
+		label &ld, 
+		label &nelem,
+		List<List<scalar> > & list ,
+		List<label> &bucket_assigns,
+		label &nbucket,
+		List<label> &bucket_totals,
+		List<label> & list_origplaces,
+		List<label> & orig_slots
+	)
+{
+		// Local variables:
+		// bucket_end_pts(j) is the ending point of bucket j in final, sorted list
+		// bucket_cur_pts(j) starts at bucket_end_pts(j-1)+1, moves up during sort
+		// dimension is nbucket+1 due to extra, "bad" bucket at end of list
+		List<label> bucket_cur_pts(nbucket+1,0);
+		List<label> bucket_end_pts(nbucket+1,0);
+		label total_all_good;
+		label marker;
+		label current_total;
+		label jdest;
+		label jup;
+		label chainstart;
+		label listplace;
+		label nextmove;
+		label backchain ;
+		List<bool> done_bucket(nbucket+1,false);
+		bool found_start;
+		bool found_end;
+		List<scalar> temp_vec(nelem,0.0);
+		label temp_place=0;
+		
+		total_all_good = sum(bucket_totals);
+		marker=0;
+		for(label j=0;j<nbucket+1;j++)
+		{
+			if ( j < nbucket )
+			{
+				current_total = bucket_totals[j];
+			}
+			else
+			{
+				current_total = nlist - total_all_good;
+			}
+			if ( current_total == 0 ) done_bucket[j] = true;
+			bucket_cur_pts[j] = marker;
+			marker = marker + current_total;
+			bucket_end_pts[j] = marker - 1;
+		}
+		forAll(orig_slots,i) orig_slots[i]=i;
+		for(label j=0;j<nbucket + 1;j++)
+		{			
+// begin to plan the unique swap chain that starts in bucket j:
+			// consider only places in bucket j that aren't yet done;
+			// whole buckets can and will be skipped as the algorithm proceeds
+			// scan for the next item out of place, if any, and start chain there
+			found_start = false;
+			while(! (found_start || done_bucket[j]))
+			{
+				chainstart = bucket_cur_pts[j];
+				jdest = bucket_assigns[chainstart];
+				if (  jdest < 0 ||  jdest > nbucket-1  ) jdest = nbucket ;
+				if ( jdest != j ) found_start = true;
+				bucket_cur_pts[j] = bucket_cur_pts[j] + 1;
+				if ( bucket_cur_pts[j] > bucket_end_pts[j] ) done_bucket[j] = true;
+				
+			}
+			if ( found_start )
+			{
+				listplace = chainstart;
+				found_end = false;
+				while(!found_end)
+				{
+					
+					nextmove = bucket_cur_pts[jdest];
+					if ( nextmove > bucket_end_pts[jdest] )
+					{
+						if ( jdest == j )
+						{
+							found_end = true;
+						}
+						else
+						{
+							Pout<<"bucket_sort: can''t move into bucket"<<jdest<<endl;
+							//return 0;
+break;
+						}
+					}
+					else
+					{
+						jup = bucket_assigns[nextmove];
+						if ( ( jup <0 ) || ( jup > nbucket-1 ) ) jup = nbucket ;
+						if ( jup == jdest )
+						{
+							bucket_cur_pts[jdest] = bucket_cur_pts[jdest] + 1;
+						}
+						else
+						{
+							orig_slots[nextmove] = listplace;
+							listplace = nextmove;
+							bucket_cur_pts[jdest] = bucket_cur_pts[jdest] + 1;
+							 if ( bucket_cur_pts[jdest] > bucket_end_pts[jdest] ) 
+							 {
+								done_bucket[jdest] = true;
+							 }
+							 jdest = jup;
+				  
+							
+						}
+					}					
+					
+				}//end while
+				forAll(temp_vec,celli) temp_vec[celli]=list[celli][chainstart];
+				
+				temp_place        = list_origplaces[chainstart];
+				list_origplaces[chainstart] = list_origplaces[listplace];
+				for(label ii=0;ii<nelem;ii++)
+				{
+					list[ii][chainstart]=list[ii][listplace];
+				}
+				
+				orig_slots[chainstart] = listplace;
+				backchain = orig_slots[listplace];
+				while(backchain != chainstart)
+				{
+					for(label ii=0;ii<nelem;ii++)
+					{
+						list[ii][listplace]=list[ii][backchain];
+					}
+					
+					list_origplaces[listplace] = list_origplaces[backchain];
+					listplace = backchain;
+					backchain = orig_slots[listplace];
+				}
+				for(label ii=0;ii<nelem;ii++)
+				{
+					list[ii][listplace]=temp_vec[ii];
+				}
+				
+				list_origplaces[listplace] = temp_place;
+			}//end if ( found_start )			
+			
+		}//end for
+		
+		
+}
+//endali
 // ************************************************************************* //

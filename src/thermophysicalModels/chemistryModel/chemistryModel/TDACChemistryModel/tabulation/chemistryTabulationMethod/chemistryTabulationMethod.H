@@ -74,7 +74,12 @@ protected:
 
     scalar tolerance_;
 
-
+	//- Is load balance active?
+    Switch loadBalance_;
+    
+    word distributionType_;
+    
+    label numberOfInitDI_;
 public:
 
     //- Runtime type information
@@ -123,6 +128,21 @@ public:
         inline bool active()
         {
             return active_;
+        }
+        
+        inline bool loadBalance()
+        {
+            return loadBalance_;
+        }
+        
+        inline word distributionType()
+        {
+            return distributionType_;
+        }
+        
+        inline label numberOfInitDI()
+        {
+            return numberOfInitDI_;
         }
 
         inline bool log()

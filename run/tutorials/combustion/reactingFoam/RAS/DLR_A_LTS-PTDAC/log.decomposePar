@@ -1,0 +1,107 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.4.x                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 2.4.x-2b147f41daf9
+Exec   : decomposePar -force
+Date   : Sep 28 2017
+Time   : 13:53:33
+Host   : "node-2-14"
+PID    : 99202
+Case   : /home/chimica2/shamooni/OpenFOAM/shamooni-dev/run/tutorials/combustion/reactingFoam/RAS/DLR_A_LTS-PTDAC
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+
+
+Decomposing mesh region0
+
+Create mesh
+
+Calculating distribution of cells
+Selecting decompositionMethod simple
+
+Finished decomposition in 0 s
+
+Calculating original mesh data
+
+Distributing cells to processors
+
+Distributing faces to processors
+
+Distributing points to processors
+
+Constructing processor meshes
+
+Processor 0
+    Number of cells = 578
+    Number of faces shared with processor 1 = 38
+    Number of processor patches = 1
+    Number of processor faces = 38
+    Number of boundary faces = 1216
+
+Processor 1
+    Number of cells = 578
+    Number of faces shared with processor 0 = 38
+    Number of faces shared with processor 2 = 38
+    Number of processor patches = 2
+    Number of processor faces = 76
+    Number of boundary faces = 1172
+
+Processor 2
+    Number of cells = 578
+    Number of faces shared with processor 1 = 38
+    Number of faces shared with processor 3 = 38
+    Number of processor patches = 2
+    Number of processor faces = 76
+    Number of boundary faces = 1172
+
+Processor 3
+    Number of cells = 578
+    Number of faces shared with processor 2 = 38
+    Number of faces shared with processor 4 = 38
+    Number of processor patches = 2
+    Number of processor faces = 76
+    Number of boundary faces = 1171
+
+Processor 4
+    Number of cells = 577
+    Number of faces shared with processor 3 = 38
+    Number of faces shared with processor 5 = 38
+    Number of processor patches = 2
+    Number of processor faces = 76
+    Number of boundary faces = 1170
+
+Processor 5
+    Number of cells = 577
+    Number of faces shared with processor 4 = 38
+    Number of processor patches = 1
+    Number of processor faces = 38
+    Number of boundary faces = 1207
+
+Number of processor faces = 190
+Max number of cells = 578 (0.0577034045% above average 577.6666667)
+Max number of processor patches = 2 (20% above average 1.666666667)
+Max number of faces between processors = 76 (20% above average 63.33333333)
+
+Time = 0
+
+
+--> FOAM FATAL IO ERROR: 
+keyword gamma is undefined in dictionary "/home/chimica2/shamooni/OpenFOAM/shamooni-dev/run/tutorials/combustion/reactingFoam/RAS/DLR_A_LTS-PTDAC/0/p.boundaryField.outlet"
+
+file: /home/chimica2/shamooni/OpenFOAM/shamooni-dev/run/tutorials/combustion/reactingFoam/RAS/DLR_A_LTS-PTDAC/0/p.boundaryField.outlet from line 34 to line 20.
+
+    From function dictionary::lookupEntry(const word&, bool, bool) const
+    in file db/dictionary/dictionary.C at line 442.
+
+FOAM exiting
+

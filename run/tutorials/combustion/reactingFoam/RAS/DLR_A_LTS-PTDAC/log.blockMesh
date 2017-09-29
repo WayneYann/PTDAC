@@ -1,0 +1,103 @@
+/*---------------------------------------------------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.4.x                                 |
+|   \\  /    A nd           | Web:      www.OpenFOAM.org                      |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+Build  : 2.4.x-2b147f41daf9
+Exec   : blockMesh
+Date   : Sep 28 2017
+Time   : 13:53:30
+Host   : "node-2-14"
+PID    : 99092
+Case   : /home/chimica2/shamooni/OpenFOAM/shamooni-dev/run/tutorials/combustion/reactingFoam/RAS/DLR_A_LTS-PTDAC
+nProcs : 1
+sigFpe : Enabling floating point exception trapping (FOAM_SIGFPE).
+fileModificationChecking : Monitoring run-time modified files using timeStampMaster
+allowSystemOperations : Allowing user-supplied system call operations
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+Create time
+
+Creating block mesh from
+    "/home/chimica2/shamooni/OpenFOAM/shamooni-dev/run/tutorials/combustion/reactingFoam/RAS/DLR_A_LTS-PTDAC/system/blockMeshDict"
+No non-linear edges defined
+Creating topology blocks
+Creating topology patches
+
+Creating block mesh topology
+
+Check topology
+
+	Basic statistics
+		Number of internal faces : 5
+		Number of boundary faces : 26
+		Number of defined boundary faces : 26
+		Number of undefined boundary faces : 0
+	Checking patch -> block consistency
+
+Creating block offsets
+Creating merge list .
+
+Creating polyMesh from blockMesh
+Creating patches
+Creating cells
+Creating points with scale 0.001
+    Block 0 cell size :
+        i : 0.001 .. 0.001
+        j : 0 .. 0
+        k : 0.006840738256 .. 0.003420369128
+
+    Block 1 cell size :
+        i : 0.001 .. 0.001
+        j : 0 .. 0
+        k : 0.002496852867 .. 0.0299622344
+
+    Block 2 cell size :
+        i : 0.0005 .. 0.0005
+        j : 0.0003489550989 .. 0.0003489550989
+        k : 0.002496852867 .. 0.0299622344
+
+    Block 3 cell size :
+        i : 0.002078108881 .. 0.01246865328
+        j : 0.0003925744863 .. 0.0003925744863
+        k : 0.006840738256 .. 0.003420369128
+
+    Block 4 cell size :
+        i : 0.002078108881 .. 0.01246865328
+        j : 0.0003925744863 .. 0.0003925744863
+        k : 0.002496852867 .. 0.0299622344
+
+    Block 5 cell size :
+        i : 0.005 .. 0.005
+        j : 0.01570297945 .. 0.01570297945
+        k : 0.002496852867 .. 0.0299622344
+
+
+There are no merge patch pairs edges
+
+Writing polyMesh
+----------------
+Mesh Information
+----------------
+  boundingBox: (0 -0.008287683599 -0.02) (0.1898191621 0.008287683599 1)
+  nPoints: 7109
+  nCells: 3466
+  nFaces: 13905
+  nInternalFaces: 6797
+----------------
+Patches
+----------------
+  patch 0 (start: 6797 size: 4) name: inletfuel
+  patch 1 (start: 6801 size: 30) name: inletair
+  patch 2 (start: 6831 size: 37) name: outlet
+  patch 3 (start: 6868 size: 0) name: axis
+  patch 4 (start: 6868 size: 96) name: leftside
+  patch 5 (start: 6964 size: 8) name: burnerwall
+  patch 6 (start: 6972 size: 1) name: burnertip
+  patch 7 (start: 6973 size: 3466) name: front
+  patch 8 (start: 10439 size: 3466) name: back
+
+End
+

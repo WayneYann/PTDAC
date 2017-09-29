@@ -29,7 +29,11 @@ deltaT          1;
 
 writeControl    runTime;
 
+<<<<<<< HEAD
 writeInterval   1000;
+=======
+writeInterval   100;
+>>>>>>> Ali0
 
 purgeWrite      0;
 

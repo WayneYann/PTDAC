@@ -77,13 +77,21 @@ reduction
 tabulation
 {
     // Activate tabulation
+<<<<<<< HEAD
     active      off;//on;
+=======
+    active      on;//off;
+>>>>>>> Ali0
 	
 	//number of initial sub chemistry solution without using ISAT
 	numberOfInitialDI		5;		
 
 	//Activate parallel ISAT
+<<<<<<< HEAD
 	loadBalance off;	
+=======
+	loadBalance on;//off;	
+>>>>>>> Ali0
 	
 	//parallel ISAT type
 	distributionType URAN;

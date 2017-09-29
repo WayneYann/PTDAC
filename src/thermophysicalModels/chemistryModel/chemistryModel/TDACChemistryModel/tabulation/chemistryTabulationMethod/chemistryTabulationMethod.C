@@ -40,7 +40,10 @@ Foam::chemistryTabulationMethod<CompType, ThermoType>::chemistryTabulationMethod
     active_(coeffsDict_.lookupOrDefault<Switch>("active", false)),
     log_(coeffsDict_.lookupOrDefault<Switch>("log", false)),
     chemistry_(chemistry),
-    tolerance_(coeffsDict_.lookupOrDefault<scalar>("tolerance", 1e-4))
+    tolerance_(coeffsDict_.lookupOrDefault<scalar>("tolerance", 1e-4)),
+	loadBalance_(coeffsDict_.lookupOrDefault<Switch>("loadBalance", false)),
+    distributionType_(coeffsDict_.lookup("distributionType")),
+    numberOfInitDI_(coeffsDict_.lookupOrDefault<scalar>("numberOfInitialDI", 5))
 {}
 
 

@@ -17,7 +17,12 @@ runApplication chemkinToFoam \
 runApplication blockMesh
 runApplication setFields
 runApplication decomposePar -force
+<<<<<<< HEAD
 runParallel $application
 runApplication reconstructPar
+=======
+runParallel $application
+runApplication reconstructPar
+>>>>>>> Ali0
 
 #------------------------------------------------------------------------------
