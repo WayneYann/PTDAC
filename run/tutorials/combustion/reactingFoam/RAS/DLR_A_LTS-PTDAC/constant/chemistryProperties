@@ -83,7 +83,7 @@ tabulation
 	numberOfInitialDI		5;		
 
 	//Activate parallel ISAT
-	loadBalance off;	
+	loadBalance on;//off;	
 	
 	//parallel ISAT type
 	distributionType URAN;
